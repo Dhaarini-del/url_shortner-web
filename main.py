@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import os, string, random
@@ -26,13 +26,15 @@ async def read_index():
     return FileResponse("index.html")
 @app.post("/shorten")
 async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
-    # Handle empty alias strings from frontend
-    alias = alias.strip() if alias and alias.strip() != "" else None
-    
+    # Clean input
+    url = url.strip()
+    alias = alias.strip() if alias and alias.strip() else None
+
     if not utils.check_url_safety(url):
         raise HTTPException(status_code=400, detail="URL contains suspicious content")
     
-    # CRITICAL: Ensure the URL has a protocol to prevent 404 relative redirects
+    # CRITICAL: If the URL doesn't have http/https, the browser will treat the 
+    # redirect as a relative path on YOUR domain, causing a 404.
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
@@ -58,8 +60,12 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
     db.add(new_link)
     db.commit()
 
-    # Dynamically determine the base URL from the request if APP_URL is not set
-    base = APP_URL_ENV if APP_URL_ENV else f"{request.url.scheme}://{request.url.netloc}"
+    # Dynamically determine the base URL. This handles the case where APP_URL env is wrong.
+    if APP_URL_ENV:
+        base = APP_URL_ENV
+    else:
+        base = str(request.base_url).rstrip("/")
+
     final_short_url = f"{base}/r/{short_id}"
 
     print(f"DEBUG: Created short link {short_id} -> {url} (Base: {base})")
@@ -75,12 +81,12 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
 @app.get("/r/{short_id}")
 @app.get("/r/{short_id}/")
 async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
-    # Strip any potential whitespace or trailing slashes from the ID
     clean_id = short_id.strip()
-    print(f"DEBUG: Incoming redirect request for ID: '{clean_id}'")
+    
     link = db.query(models.Link).filter(models.Link.short_code == clean_id).first()
+    
     if link:
-        # Record click analytics
+        print(f"DEBUG: ID '{clean_id}' found. Redirecting to: {link.original_url}")
         new_click = models.Click(
             link_id=link.id,
             ip_address=request.client.host,
@@ -88,7 +94,7 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
-        print(f"DEBUG: ID found! Redirecting to {link.original_url}")
-        return RedirectResponse(url=link.original_url, status_code=302)
-    print(f"DEBUG: ID '{clean_id}' NOT FOUND in database")
+        return RedirectResponse(url=link.original_url, status_code=307)
+    
+    print(f"DEBUG: ID '{clean_id}' NOT FOUND. Current DB Links: {db.query(models.Link).count()}")
     raise HTTPException(status_code=404, detail="Link not found")
