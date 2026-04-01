@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://comfy-salmiakki-3660b3.netlify.app").rstrip("/")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jocular-otter-5bb221.netlify.app").rstrip("/")
 APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
 
 # Enable CORS for frontend communication
@@ -21,7 +21,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         FRONTEND_URL,
-        "https://comfy-salmiakki-3660b3.netlify.app",
+        "https://jocular-otter-5bb221.netlify.app",
+        "https://69cd236246b1fb76e0ecb976--jocular-otter-5bb221.netlify.app",
+        "https://astounding-lollipop-f34198.netlify.app",
         "http://localhost:3000",
         "http://127.0.0.1:5500"
     ],
@@ -144,5 +146,3 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         db.commit()
         return RedirectResponse(url=link.original_url, status_code=302)
     
-    logger.warning(f"Short ID '{clean_id}' not found in database. Links in DB: {db.query(models.Link).count()}. Check DB connection and APP_URL.")
-    raise HTTPException(status_code=404, detail="Link not found")
