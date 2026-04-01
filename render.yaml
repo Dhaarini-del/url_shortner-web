@@ -9,8 +9,7 @@ services:
       - key: APP_URL
         sync: false
         description: "The full URL of your deployed app (e.g., https://your-app.onrender.com)"
-      - key: DATABASE_URL
-        sync: false
-        description: "The connection string for your PostgreSQL database (Internal or External URL)"
+      - key: DATABASE_URL # This will be set manually in Render Dashboard
+        value: "your_postgres_connection_string_here" # Placeholder, Render will read from Dashboard
       - key: PYTHON_VERSION
         value: 3.11.0
