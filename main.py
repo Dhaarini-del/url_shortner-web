@@ -11,7 +11,7 @@ app = FastAPI()
 models.Base.metadata.create_all(bind=database.engine)
 
 # Configuration
-APP_URL_ENV = os.getenv("APP_URL", "").rstrip("/")
+APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
 
 def get_db():
     db = database.SessionLocal()
@@ -64,7 +64,7 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
     if APP_URL_ENV:
         base = APP_URL_ENV
     else:
-        base = str(request.base_url).rstrip("/")
+        base = f"{request.url.scheme}://{request.url.netloc}"
 
     final_short_url = f"{base}/r/{short_id}"
 
