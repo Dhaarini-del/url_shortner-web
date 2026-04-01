@@ -15,7 +15,11 @@ app = FastAPI()
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://astounding-lollipop-f34198.netlify.app"],
+    allow_origins=[
+        "https://astounding-lollipop-f34198.netlify.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:5500"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -135,7 +139,7 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
-        return RedirectResponse(url=link.original_url, status_code=302) # Using 302 for standard shortener behavior
+        return RedirectResponse(url=link.original_url, status_code=302)
     
     logger.warning(f"Short ID '{clean_id}' not found in database. Links in DB: {db.query(models.Link).count()}. Check DB connection and APP_URL.")
     raise HTTPException(status_code=404, detail="Link not found")
