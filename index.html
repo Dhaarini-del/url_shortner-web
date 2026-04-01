@@ -48,8 +48,11 @@
                 return;
             }
             
+            // Replace this with your actual Render Backend URL (e.g., https://your-app.onrender.com)
+            const BACKEND_URL = "https://url-shortener-web-c6mi.onrender.com";
+            
             try {
-                const response = await fetch(`/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
+                const response = await fetch(`${BACKEND_URL}/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
                     method: 'POST'
                 });
                 
