@@ -1,145 +1,87 @@
-from fastapi import FastAPI, HTTPException, Query, Depends, Request
-from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-import os, string, random, logging
-import models, database, utils
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Modern URL Shortener</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-10">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-blue-400">Link Master API</h1>
+        
+        <!-- Input Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl mb-10">
+            <div class="flex flex-col gap-4">
+                <input id="longUrl" type="text" placeholder="Paste your long URL here..." class="p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+                <input id="alias" type="text" placeholder="Custom Alias (optional)" class="p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+                <button type="button" onclick="shorten(event)" class="bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition">Shorten URL</button>
+            </div>
+        </div>
 
-# Setup logging for Render console
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+        <!-- Result Section -->
+        <div id="result" class="hidden bg-gray-800 p-6 rounded-lg border-l-4 border-green-500">
+            <h2 class="text-xl font-semibold mb-4 text-green-400">Success! Your link is ready:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm text-gray-400">Short URL</p>
+                    <a id="shortenedLink" href="#" target="_blank" class="text-lg font-mono text-blue-300 mb-4 hover:underline block"></a>
+                    
+                    <p class="text-sm text-gray-400">Website Metadata</p>
+                    <p id="metaInfo" class="text-sm mb-4"></p>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm text-gray-400 mb-2">QR Code</p>
+                    <img id="qrImage" src="" class="mx-auto rounded bg-white p-2">
+                </div>
+            </div>
+        </div>
+    </div>
 
-app = FastAPI()
+    <script>
+        async function shorten(event) {
+            if (event) event.preventDefault();
+            const url = document.getElementById('longUrl').value;
+            const alias = document.getElementById('alias').value;
+            
+            if (!url) {
+                alert("Please enter a URL first.");
+                return;
+            }
+            
+            // Backend URL - pointing to Render
+            const RENDER_BACKEND_URL = "https://url-shortener-web-c6mi.onrender.com"; 
+            const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+                ? "http://localhost:8000"
+                : RENDER_BACKEND_URL;
 
-# Enable CORS for frontend communication
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://astounding-lollipop-f34198.netlify.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:5500"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+            console.log("Attempting to connect to backend at:", BACKEND_URL);
+            
+            try {
+                const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.classList.remove('hidden');
+                    const linkElem = document.getElementById('shortenedLink');
+                    linkElem.innerText = data.short_url;
+                    linkElem.href = data.short_url;
+                    document.getElementById('metaInfo').innerText = `Domain: ${data.domain} | IP: ${data.ip}`;
+                    document.getElementById('qrImage').src = `data:image/png;base64,${data.qr_code}`;
+                    
+                    // Scroll to result so the user sees it
+                    resultDiv.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert("Error: " + (data.detail || "Something went wrong"));
+                }
+            } catch (err) {
+                console.error("Fetch error:", err);
+                alert("Could not connect to the backend server. Check your browser's developer console (F12) for more details. If you just deployed, Render might be 'waking up' the server. Please wait 30 seconds and try again.");
+            }
+        }
+    </script>
+</body>
+</html>
 
-# Initialize Database Tables
-try:
-    logger.info(f"Attempting to connect to database: {database.SQLALCHEMY_DATABASE_URL.split('?')[0].split('@')[-1]}") # Log without credentials
-    models.Base.metadata.create_all(bind=database.engine)
-    logger.info("Database tables initialized successfully.")
-except Exception as e:
-    # This is a critical error. The app cannot function without database access.
-    logger.error(f"Database initialization failed: {e}")
-
-# Configuration
-APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
-
-def get_db():
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-@app.get("/")
-async def health_check():
-    """Backend Health Check - Now that frontend is on Netlify"""
-    return {
-        "status": "online",
-        "api": "Link Master API",
-        "version": "1.0.0"
-    }
-
-@app.post("/shorten")
-async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
-    # Clean input
-    url = url.strip()
-    alias = alias.strip() if alias and alias.strip() else None
-
-    if not utils.check_url_safety(url):
-        logger.warning(f"Attempt to shorten unsafe URL: {url}")
-        raise HTTPException(status_code=400, detail="URL contains suspicious content")
-    
-    # CRITICAL: If the URL doesn't have http/https, the browser will treat the 
-    # redirect as a relative path on YOUR domain, causing a 404.
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-
-    short_id = alias if alias else ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-
-    # Check if this short_id already exists in the database. Use .ilike for case-insensitivity on PostgreSQL
-    existing = db.query(models.Link).filter(
-        (models.Link.short_code == short_id) | 
-        (models.Link.custom_alias == short_id) # custom_alias should be exact match
-    ).first()
-    if existing:
-        logger.warning(f"Alias/short code '{short_id}' already taken for URL: {url}")
-        raise HTTPException(status_code=400, detail="Short code or alias already taken")
-
-    domain, ip = utils.get_url_metadata(url)
-    
-    new_link = models.Link(
-        original_url=url,
-        short_code=short_id,
-        custom_alias=alias,
-        domain_name=domain or "Unknown",
-        website_ip=ip
-    )
-    db.add(new_link)
-    try:
-        db.commit()
-        logger.info(f"Successfully committed new link to DB: {short_id} -> {url}")
-    except Exception as commit_error:
-        db.rollback()
-        logger.error(f"Database commit failed for {short_id}: {commit_error}")
-        raise HTTPException(status_code=500, detail="Failed to save link to database.")
-
-    # Determine the base URL dynamically or from Env
-    if APP_URL_ENV:
-        base = APP_URL_ENV
-    else:
-        base = str(request.base_url).rstrip("/") # Fallback to current request's base URL
-        logger.warning(f"APP_URL environment variable not set. Using request.base_url for link generation: {base}")
-
-    final_short_url = f"{base}/r/{short_id}"
-
-    logger.info(f"Generated short URL: {final_short_url} (for {url})")
-    qr_code = utils.generate_qr_base64(final_short_url)
-
-    return {
-        "short_url": final_short_url,
-        "domain": domain,
-        "ip": ip,
-        "qr_code": qr_code
-    }
-
-@app.get("/r/{short_id}")
-@app.get("/r/{short_id}/")
-async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
-    # Clean ID to prevent lookup failures
-    clean_id = short_id.strip()
-    logger.info(f"Attempting to redirect for short_id: '{clean_id}'")
-    
-    # Query for both short_code and custom_alias
-    link = db.query(models.Link).filter(
-        (models.Link.short_code == clean_id) |
-        (models.Link.custom_alias == clean_id)
-    ).first()
-    
-    if link:
-        logger.info(f"Redirecting ID '{clean_id}' to: {link.original_url}")
-        new_click = models.Click(
-            link_id=link.id,
-            ip_address=request.client.host,
-            user_agent=request.headers.get("user-agent"),
-            country="Unknown" # Default for now
-        )
-        db.add(new_click)
-        db.commit()
-        return RedirectResponse(url=link.original_url, status_code=302)
-    
-    logger.warning(f"Short ID '{clean_id}' not found in database. Links in DB: {db.query(models.Link).count()}. Check DB connection and APP_URL.")
-    raise HTTPException(status_code=404, detail="Link not found")
