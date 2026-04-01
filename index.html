@@ -26,7 +26,7 @@
                     <p class="text-sm text-gray-400">Short URL</p>
                     <div class="flex items-center gap-2 mb-4">
                         <a id="shortenedLink" href="#" target="_blank" class="text-lg font-mono text-blue-300 hover:underline"></a>
-                        <button onclick="copyToClipboard()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">Copy</button>
+                        <button onclick="copyToClipboard(this)" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">Copy</button>
                     </div>
                     
                     <p class="text-sm text-gray-400">Website Metadata</p>
@@ -61,18 +61,12 @@
                 return;
             }
             
-            // Backend URL - pointing to Render
-            const RENDER_BACKEND_URL = "https://url-shortener-web-c6mi.onrender.com"; 
-            let BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
-                ? "http://localhost:8000"
-                : RENDER_BACKEND_URL;
-
-            // Remove trailing slash to prevent //shorten errors
-            BACKEND_URL = BACKEND_URL.replace(/\/$/, "");
-            console.log("Connecting to:", BACKEND_URL);
+            // Use a relative path since frontend and backend are on the same domain
+            const BACKEND_URL = ""; 
+            console.log("Connecting to relative backend");
             
             try {
-                const response = await fetch(`${BACKEND_URL}/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
+                const response = await fetch(`/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
                     method: 'POST'
                 });
                 
@@ -105,3 +99,4 @@
     </script>
 </body>
 </html>
+
