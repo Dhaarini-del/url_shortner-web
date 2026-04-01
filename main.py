@@ -94,7 +94,7 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
-        return RedirectResponse(url=link.original_url, status_code=307)
+        return RedirectResponse(url=link.original_url, status_code=302)
     
     print(f"DEBUG: ID '{clean_id}' NOT FOUND. Current DB Links: {db.query(models.Link).count()}")
     raise HTTPException(status_code=404, detail="Link not found")
