@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://comfy-salmiakki-3660b3.netlify.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://comfy-salmiakki-3660b3.netlify.app").rstrip("/")
+APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
 
 # Enable CORS for frontend communication
 app.add_middleware(
@@ -37,9 +38,6 @@ try:
 except Exception as e:
     # This is a critical error. The app cannot function without database access.
     logger.error(f"Database initialization failed: {e}")
-
-# Configuration
-APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
 
 def get_db():
     db = database.SessionLocal()
@@ -104,6 +102,7 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
     # Determine the base URL dynamically or from Env
     if APP_URL_ENV:
         base = APP_URL_ENV
+        logger.info(f"Using APP_URL_ENV for link generation: {base}")
     else:
         base = str(request.base_url).rstrip("/") # Fallback to current request's base URL
         logger.warning(f"APP_URL environment variable not set. Using request.base_url for link generation: {base}")
