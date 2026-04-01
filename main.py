@@ -24,17 +24,23 @@ async def read_index():
     return FileResponse("index.html")
 @app.post("/shorten")
 async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(get_db)):
+    # Handle empty alias strings from frontend
+    alias = alias.strip() if alias and alias.strip() != "" else None
+    
     if not utils.check_url_safety(url):
         raise HTTPException(status_code=400, detail="URL contains suspicious content")
     
-    # Ensure the URL has a protocol to prevent relative redirect 404s
+    # CRITICAL: Ensure the URL has a protocol to prevent 404 relative redirects
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
     short_id = alias if alias else ''.join(random.choices(string.ascii_letters + string.digits, k=6))
 
-    # Check if alias exists
-    existing = db.query(models.Link).filter(models.Link.short_code == short_id).first()
+    # Check if this short_id already exists in the database
+    existing = db.query(models.Link).filter(
+        (models.Link.short_code == short_id) | 
+        (models.Link.custom_alias == short_id)
+    ).first()
     if existing:
         raise HTTPException(status_code=400, detail="Short code or alias already taken")
 
@@ -50,6 +56,7 @@ async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(
     db.add(new_link)
     db.commit()
 
+    print(f"DEBUG: Created short link {short_id} for {url}")
     qr_code = utils.generate_qr_base64(f"{BASE_URL}/r/{short_id}")
 
     return {
@@ -61,6 +68,7 @@ async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(
 
 @app.get("/r/{short_id}")
 async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
+    print(f"DEBUG: Redirecting request for ID: {short_id}")
     link = db.query(models.Link).filter(models.Link.short_code == short_id).first()
     if link:
         # Record click analytics
@@ -71,5 +79,6 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
-        return RedirectResponse(url=link.original_url, status_code=301)
+        return RedirectResponse(url=link.original_url, status_code=302)
+    print(f"DEBUG: ID {short_id} not found in database")
     raise HTTPException(status_code=404, detail="Link not found")
