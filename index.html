@@ -73,7 +73,13 @@
                     method: 'POST'
                 });
                 
-                const data = await response.json();
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseErr) {
+                    throw new Error("The server returned an invalid response. It might still be waking up.");
+                }
+
                 if (response.ok) {
                     const resultDiv = document.getElementById('result');
                     resultDiv.classList.remove('hidden');
