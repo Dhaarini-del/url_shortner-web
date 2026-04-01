@@ -3,3 +3,4 @@ uvicorn
 qrcode[pil]
 pillow
 python-multipart
+sqlalchemy
