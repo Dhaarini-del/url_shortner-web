@@ -10,12 +10,8 @@ app = FastAPI()
 # Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
-# Get the BASE_URL from environment variables
-BASE_URL = os.getenv("APP_URL")
-if not BASE_URL:
-    print("WARNING: APP_URL environment variable is not set! Defaulting to localhost.")
-    BASE_URL = "http://localhost:8000"
-BASE_URL = BASE_URL.rstrip("/")
+# Configuration
+APP_URL_ENV = os.getenv("APP_URL", "").rstrip("/")
 
 def get_db():
     db = database.SessionLocal()
@@ -29,7 +25,7 @@ async def read_index():
     print("DEBUG: Serving index.html")
     return FileResponse("index.html")
 @app.post("/shorten")
-async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(get_db)):
+async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
     # Handle empty alias strings from frontend
     alias = alias.strip() if alias and alias.strip() != "" else None
     
@@ -62,11 +58,15 @@ async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(
     db.add(new_link)
     db.commit()
 
-    print(f"DEBUG: Created short link {short_id} for {url}")
-    qr_code = utils.generate_qr_base64(f"{BASE_URL}/r/{short_id}")
+    # Dynamically determine the base URL from the request if APP_URL is not set
+    base = APP_URL_ENV if APP_URL_ENV else f"{request.url.scheme}://{request.url.netloc}"
+    final_short_url = f"{base}/r/{short_id}"
+
+    print(f"DEBUG: Created short link {short_id} -> {url} (Base: {base})")
+    qr_code = utils.generate_qr_base64(final_short_url)
 
     return {
-        "short_url": f"{BASE_URL}/r/{short_id}",
+        "short_url": final_short_url,
         "domain": domain,
         "ip": ip,
         "qr_code": qr_code
