@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Modern URL Shortener</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-10">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-blue-400">Link Master API</h1>
+        
+        <!-- Input Section -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl mb-10">
+            <div class="flex flex-col gap-4">
+                <input id="longUrl" type="text" placeholder="Paste your long URL here..." class="p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+                <input id="alias" type="text" placeholder="Custom Alias (optional)" class="p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500">
+                <button type="button" onclick="shorten(event)" class="bg-blue-600 hover:bg-blue-700 p-3 rounded font-bold transition">Shorten URL</button>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="result" class="hidden bg-gray-800 p-6 rounded-lg border-l-4 border-green-500">
+            <h2 class="text-xl font-semibold mb-4 text-green-400">Success! Your link is ready:</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm text-gray-400">Short URL</p>
+                    <a id="shortenedLink" href="#" target="_blank" class="text-lg font-mono text-blue-300 mb-4 hover:underline block"></a>
+                    
+                    <p class="text-sm text-gray-400">Website Metadata</p>
+                    <p id="metaInfo" class="text-sm mb-4"></p>
+                </div>
+                <div class="text-center">
+                    <p class="text-sm text-gray-400 mb-2">QR Code</p>
+                    <img id="qrImage" src="" class="mx-auto rounded bg-white p-2">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function shorten(event) {
+            if (event) event.preventDefault();
+            const url = document.getElementById('longUrl').value;
+            const alias = document.getElementById('alias').value;
+            
+            if (!url) {
+                alert("Please enter a URL first.");
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    const resultDiv = document.getElementById('result');
+                    resultDiv.classList.remove('hidden');
+                    const linkElem = document.getElementById('shortenedLink');
+                    linkElem.innerText = data.short_url;
+                    linkElem.href = data.short_url;
+                    document.getElementById('metaInfo').innerText = `Domain: ${data.domain} | IP: ${data.ip}`;
+                    document.getElementById('qrImage').src = `data:image/png;base64,${data.qr_code}`;
+                    
+                    // Scroll to result so the user sees it
+                    resultDiv.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert("Error: " + (data.detail || "Something went wrong"));
+                }
+            } catch (err) {
+                alert("Could not connect to the backend server. Make sure main.py is running!");
+            }
+        }
+    </script>
+</body>
+</html>

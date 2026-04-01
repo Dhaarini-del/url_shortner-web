@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: url-shortener-web
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_URL
+        sync: false
+        description: "The full URL of your deployed app (e.g., https://your-app.onrender.com)"
+      - key: PYTHON_VERSION
+        value: 3.11.0
