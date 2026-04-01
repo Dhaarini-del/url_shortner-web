@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -55,8 +55,16 @@ async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(
     }
 
 @app.get("/r/{short_id}")
-async def redirect_url(short_id: str, db: Session = Depends(get_db)):
+async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
     link = db.query(models.Link).filter(models.Link.short_code == short_id).first()
     if link:
+        # Record click analytics
+        new_click = models.Click(
+            link_id=link.id,
+            ip_address=request.client.host,
+            user_agent=request.headers.get("user-agent")
+        )
+        db.add(new_click)
+        db.commit()
         return RedirectResponse(url=link.original_url)
     raise HTTPException(status_code=404, detail="Link not found")
