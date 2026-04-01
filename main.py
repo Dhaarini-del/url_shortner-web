@@ -31,7 +31,7 @@ def get_db():
         db.close()
 
 @app.get("/", response_class=HTMLResponse)
-async def read_index():
+async def read_index(request: Request):
     logger.info(f"Serving index.html from {request.base_url}")
     return FileResponse("index.html")
 @app.post("/shorten")
@@ -100,10 +100,11 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
 @app.get("/r/{short_id}")
 @app.get("/r/{short_id}/")
 async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
-    clean_id = short_id.strip() # Don't lowercase here, short_code might be mixed case
+    # Clean ID to prevent lookup failures
+    clean_id = short_id.strip()
     logger.info(f"Attempting to redirect for short_id: '{clean_id}'")
     
-    # Query for both short_code and custom_alias, case-sensitive match for codes
+    # Query for both short_code and custom_alias
     link = db.query(models.Link).filter(
         (models.Link.short_code == clean_id) |
         (models.Link.custom_alias == clean_id)
