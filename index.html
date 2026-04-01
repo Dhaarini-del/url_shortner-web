@@ -41,11 +41,12 @@
     </div>
 
     <script>
-        function copyToClipboard() {
+        function copyToClipboard(btn) {
             const link = document.getElementById('shortenedLink').innerText;
+            if (!link) return;
             navigator.clipboard.writeText(link).then(() => {
-                const btn = event.target;
-                btn.innerText = "Copied!";
+                const originalText = btn.innerText;
+                btn.innerText = "✓";
                 setTimeout(() => btn.innerText = "Copy", 2000);
             });
         }
@@ -62,14 +63,16 @@
             
             // Backend URL - pointing to Render
             const RENDER_BACKEND_URL = "https://url-shortener-web-c6mi.onrender.com"; 
-            const BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+            let BACKEND_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
                 ? "http://localhost:8000"
                 : RENDER_BACKEND_URL;
 
-            console.log("Attempting to connect to backend at:", BACKEND_URL);
+            // Remove trailing slash to prevent //shorten errors
+            BACKEND_URL = BACKEND_URL.replace(/\/$/, "");
+            console.log("Connecting to:", BACKEND_URL);
             
             try {
-                const response = await fetch(`${BACKEND_URL.replace(/\/$/, "")}/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
+                const response = await fetch(`${BACKEND_URL}/shorten?url=${encodeURIComponent(url)}&alias=${encodeURIComponent(alias)}`, {
                     method: 'POST'
                 });
                 
@@ -96,7 +99,7 @@
                 }
             } catch (err) {
                 console.error("Fetch error:", err);
-                alert("Could not connect to the backend server. Check your browser's developer console (F12) for more details. If you just deployed, Render might be 'waking up' the server. Please wait 30 seconds and try again.");
+                alert("Could not connect to backend. Render is likely 'sleeping'. Please wait 30s and try again, or check F12 Console.");
             }
         }
     </script>
