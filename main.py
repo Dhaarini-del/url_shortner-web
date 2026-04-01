@@ -13,20 +13,12 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://jocular-otter-5bb221.netlify.app").rstrip("/")
 APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
 
-# Enable CORS for frontend communication
+# Simplified CORS (only needed if you still want external access)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        FRONTEND_URL,
-        "https://jocular-otter-5bb221.netlify.app",
-        "https://astounding-lollipop-f34198.netlify.app",
-        "https://comfy-salmiakki-3660b3.netlify.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:5500"
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,11 +26,9 @@ app.add_middleware(
 
 # Initialize Database Tables
 try:
-    logger.info(f"Attempting to connect to database: {database.SQLALCHEMY_DATABASE_URL.split('?')[0].split('@')[-1]}") # Log without credentials
     models.Base.metadata.create_all(bind=database.engine)
     logger.info("Database tables initialized successfully.")
 except Exception as e:
-    # This is a critical error. The app cannot function without database access.
     logger.error(f"Database initialization failed: {e}")
 
 def get_db():
@@ -49,13 +39,9 @@ def get_db():
         db.close()
 
 @app.get("/")
-async def health_check():
-    """Backend Health Check - Now that frontend is on Netlify"""
-    return {
-        "status": "online",
-        "api": "Link Master API",
-        "version": "1.0.0"
-    }
+async def serve_frontend():
+    """Serve the index.html file directly from the root"""
+    return FileResponse("index.html")
 
 @app.post("/shorten")
 async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
@@ -148,4 +134,3 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
     
     logger.warning(f"Short ID '{clean_id}' not found in database. Links in DB: {db.query(models.Link).count()}. Check DB connection and APP_URL.")
     raise HTTPException(status_code=404, detail="Link not found")
-    
