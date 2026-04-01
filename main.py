@@ -12,11 +12,15 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
+# Configuration
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://comfy-salmiakki-3660b3.netlify.app")
+
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://astounding-lollipop-f34198.netlify.app",
+        FRONTEND_URL,
+        "https://comfy-salmiakki-3660b3.netlify.app",
         "http://localhost:3000",
         "http://127.0.0.1:5500"
     ],
