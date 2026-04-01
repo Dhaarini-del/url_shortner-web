@@ -15,7 +15,7 @@ app = FastAPI()
 # Enable CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For production, replace "*" with your specific Netlify URL
+    allow_origins=["https://astounding-lollipop-f34198.netlify.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
