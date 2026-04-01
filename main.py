@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import os, string, random, logging
 import models, database, utils
@@ -10,6 +11,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+
+# Enable CORS for frontend communication
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For production, replace "*" with your specific Netlify URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Initialize Database Tables
 try:
