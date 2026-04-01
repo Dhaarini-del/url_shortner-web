@@ -2,13 +2,22 @@ from fastapi import FastAPI, HTTPException, Query, Depends, Request
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-import os, string, random
+import os, string, random, logging
 import models, database, utils
+
+# Setup logging for Render console
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Initialize Database
-models.Base.metadata.create_all(bind=database.engine)
+# Initialize Database Tables
+try:
+    logger.info(f"Attempting to connect to database: {database.SQLALCHEMY_DATABASE_URL.split('?')[0]}")
+    models.Base.metadata.create_all(bind=database.engine)
+    logger.info("Database tables initialized successfully.")
+except Exception as e: # Catching a broader exception for initial debugging
+    logger.error(f"Database initialization failed: {e}")
 
 # Configuration
 APP_URL_ENV = (os.getenv("APP_URL") or "").rstrip("/")
@@ -22,7 +31,7 @@ def get_db():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
-    print("DEBUG: Serving index.html")
+    logger.info("Serving index.html")
     return FileResponse("index.html")
 @app.post("/shorten")
 async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
@@ -38,10 +47,10 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
 
-    short_id = alias if alias else ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    short_id = alias if alias else ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
 
     # Check if this short_id already exists in the database
-    existing = db.query(models.Link).filter(
+    existing = db.query(models.Link).filter( # Case-insensitive check for alias
         (models.Link.short_code == short_id) | 
         (models.Link.custom_alias == short_id)
     ).first()
@@ -60,17 +69,17 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
     db.add(new_link)
     db.commit()
 
-    # Dynamically determine the base URL. This handles the case where APP_URL env is wrong.
+    # Determine the base URL dynamically or from Env
     if APP_URL_ENV:
         base = APP_URL_ENV
     else:
-        base = f"{request.url.scheme}://{request.url.netloc}"
+        base = str(request.base_url).rstrip("/") # Use request.base_url for more accuracy
 
     final_short_url = f"{base}/r/{short_id}"
 
-    print(f"DEBUG: Created short link {short_id} -> {url} (Base: {base})")
+    logger.info(f"Generated short URL: {final_short_url} for original: {url}")
     qr_code = utils.generate_qr_base64(final_short_url)
-
+    
     return {
         "short_url": final_short_url,
         "domain": domain,
@@ -81,12 +90,14 @@ async def shorten_url(request: Request, url: str, alias: str = Query(None), db: 
 @app.get("/r/{short_id}")
 @app.get("/r/{short_id}/")
 async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
-    clean_id = short_id.strip()
+    clean_id = short_id.strip().lower() # Ensure case-insensitivity for lookup
+    logger.info(f"Attempting to redirect for short_id: '{clean_id}'")
     
-    link = db.query(models.Link).filter(models.Link.short_code == clean_id).first()
+    # Query for both short_code and custom_alias
+    link = db.query(models.Link).filter((models.Link.short_code == clean_id) | (models.Link.custom_alias == clean_id)).first()
     
     if link:
-        print(f"DEBUG: ID '{clean_id}' found. Redirecting to: {link.original_url}")
+        logger.info(f"Redirecting ID '{clean_id}' to: {link.original_url}")
         new_click = models.Click(
             link_id=link.id,
             ip_address=request.client.host,
@@ -94,7 +105,7 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
-        return RedirectResponse(url=link.original_url, status_code=302)
+        return RedirectResponse(url=link.original_url, status_code=307) # Using 307 for temporary redirect
     
-    print(f"DEBUG: ID '{clean_id}' NOT FOUND. Current DB Links: {db.query(models.Link).count()}")
+    logger.warning(f"Short ID '{clean_id}' not found in database. Current links in DB: {db.query(models.Link).count()}")
     raise HTTPException(status_code=404, detail="Link not found")
