@@ -12,9 +12,10 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
 # Fix for Render/Heroku PostgreSQL URLs: SQLAlchemy requires 'postgresql://' instead of 'postgres://'
 if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # For some Render configurations, an empty host or database name might prevent proper parsing if not explicit
-# This line ensures explicit schema: //user:pass@host:port/dbname
-elif SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+# Ensure SSL is enabled for PostgreSQL as Render usually requires it
+if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
     # Ensure any query parameters like ?sslmode=disable are handled correctly
     if '?' not in SQLALCHEMY_DATABASE_URL:
         SQLALCHEMY_DATABASE_URL += '?sslmode=require' # Render often requires SSL, add if not present
@@ -28,3 +29,4 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
