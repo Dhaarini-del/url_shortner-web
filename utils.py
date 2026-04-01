@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 def get_url_metadata(url: str):
     """Extracts domain and attempts to resolve IP."""
     domain = urlparse(url).netloc
+    if not domain and "/" not in url: # Fallback for strings like 'google.com'
+        domain = url.split('/')[0]
     try:
         ip_address = socket.gethostbyname(domain)
     except (socket.gaierror, Exception):
