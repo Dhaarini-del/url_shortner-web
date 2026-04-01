@@ -40,10 +40,15 @@ def get_db():
     finally:
         db.close()
 
-@app.get("/", response_class=HTMLResponse)
-async def read_index(request: Request):
-    logger.info(f"Serving index.html from {request.base_url}")
-    return FileResponse("index.html")
+@app.get("/")
+async def health_check():
+    """Backend Health Check - Now that frontend is on Netlify"""
+    return {
+        "status": "online",
+        "api": "Link Master API",
+        "version": "1.0.0"
+    }
+
 @app.post("/shorten")
 async def shorten_url(request: Request, url: str, alias: str = Query(None), db: Session = Depends(get_db)):
     # Clean input
