@@ -10,7 +10,12 @@ app = FastAPI()
 # Initialize Database
 models.Base.metadata.create_all(bind=database.engine)
 
-BASE_URL = os.getenv("APP_URL", "http://localhost:8000").rstrip("/")
+# Get the BASE_URL from environment variables
+BASE_URL = os.getenv("APP_URL")
+if not BASE_URL:
+    print("WARNING: APP_URL environment variable is not set! Defaulting to localhost.")
+    BASE_URL = "http://localhost:8000"
+BASE_URL = BASE_URL.rstrip("/")
 
 def get_db():
     db = database.SessionLocal()
@@ -21,6 +26,7 @@ def get_db():
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index():
+    print("DEBUG: Serving index.html")
     return FileResponse("index.html")
 @app.post("/shorten")
 async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(get_db)):
@@ -67,9 +73,12 @@ async def shorten_url(url: str, alias: str = Query(None), db: Session = Depends(
     }
 
 @app.get("/r/{short_id}")
+@app.get("/r/{short_id}/")
 async def redirect_url(short_id: str, request: Request, db: Session = Depends(get_db)):
-    print(f"DEBUG: Redirecting request for ID: {short_id}")
-    link = db.query(models.Link).filter(models.Link.short_code == short_id).first()
+    # Strip any potential whitespace or trailing slashes from the ID
+    clean_id = short_id.strip()
+    print(f"DEBUG: Incoming redirect request for ID: '{clean_id}'")
+    link = db.query(models.Link).filter(models.Link.short_code == clean_id).first()
     if link:
         # Record click analytics
         new_click = models.Click(
@@ -79,6 +88,7 @@ async def redirect_url(short_id: str, request: Request, db: Session = Depends(ge
         )
         db.add(new_click)
         db.commit()
+        print(f"DEBUG: ID found! Redirecting to {link.original_url}")
         return RedirectResponse(url=link.original_url, status_code=302)
-    print(f"DEBUG: ID {short_id} not found in database")
+    print(f"DEBUG: ID '{clean_id}' NOT FOUND in database")
     raise HTTPException(status_code=404, detail="Link not found")
