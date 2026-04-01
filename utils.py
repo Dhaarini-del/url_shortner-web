@@ -33,3 +33,4 @@ def generate_qr_base64(url: str):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
+
