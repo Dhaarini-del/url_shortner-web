@@ -24,7 +24,10 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <p class="text-sm text-gray-400">Short URL</p>
-                    <a id="shortenedLink" href="#" target="_blank" class="text-lg font-mono text-blue-300 mb-4 hover:underline block"></a>
+                    <div class="flex items-center gap-2 mb-4">
+                        <a id="shortenedLink" href="#" target="_blank" class="text-lg font-mono text-blue-300 hover:underline"></a>
+                        <button onclick="copyToClipboard()" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">Copy</button>
+                    </div>
                     
                     <p class="text-sm text-gray-400">Website Metadata</p>
                     <p id="metaInfo" class="text-sm mb-4"></p>
@@ -38,6 +41,15 @@
     </div>
 
     <script>
+        function copyToClipboard() {
+            const link = document.getElementById('shortenedLink').innerText;
+            navigator.clipboard.writeText(link).then(() => {
+                const btn = event.target;
+                btn.innerText = "Copied!";
+                setTimeout(() => btn.innerText = "Copy", 2000);
+            });
+        }
+
         async function shorten(event) {
             if (event) event.preventDefault();
             const url = document.getElementById('longUrl').value;
@@ -84,4 +96,3 @@
     </script>
 </body>
 </html>
-
