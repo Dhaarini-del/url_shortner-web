@@ -9,7 +9,7 @@ def get_url_metadata(url: str):
     domain = urlparse(url).netloc
     try:
         ip_address = socket.gethostbyname(domain)
-    except socket.gaierror:
+    except (socket.gaierror, Exception):
         ip_address = "Unknown"
     return domain, ip_address
 
