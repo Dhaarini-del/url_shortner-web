@@ -9,6 +9,11 @@ DEFAULT_DB_URL = f"sqlite:///{os.path.join(BASE_DIR, 'url_shortener.db')}"
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
 
+# Fix for Render/Heroku PostgreSQL URLs: SQLAlchemy requires 'postgresql://' instead of 'postgres://'
+if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+
 # SQLite requires check_same_thread: False, but Postgres will error if it's included
 connect_args = {"check_same_thread": False} if SQLALCHEMY_DATABASE_URL.startswith("sqlite") else {}
 
